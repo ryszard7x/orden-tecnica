@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Orden de Servicio Profesional</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    
+    <style>
+        :root { --primary: #1a2a3a; --accent: #2ecc71; --gray: #ecf0f1; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #d6dbdf; margin: 0; padding: 15px; }
+        .container { max-width: 850px; margin: auto; background: white; padding: 30px; border-radius: 4px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border-top: 10px solid var(--primary); }
+        
+        h2 { text-align: center; color: var(--primary); letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase; }
+        .config-prof { background: #fdf2e9; border: 1px solid #e67e22; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .config-title { font-size: 11px; font-weight: bold; color: #e67e22; margin-bottom: 10px; display: block; }
+        
+        fieldset { border: 1px solid #d5dbdb; border-radius: 5px; margin-bottom: 20px; padding: 15px; background: #fdfefe; }
+        legend { font-weight: bold; color: var(--primary); font-size: 11px; text-transform: uppercase; background: var(--gray); padding: 3px 10px; border-radius: 3px; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; background: #fff; }
+        
+        #seccionJoules { display: none; background: #f4f9fd; padding: 15px; border-left: 5px solid #3498db; margin: 10px 0; }
+        .joule-grid { display: grid; grid-template-columns: 0.5fr 1fr 1fr; gap: 8px; align-items: center; }
+
+        .photo-area { border: 2px dashed #bdc3c7; padding: 20px; border-radius: 5px; text-align: center; cursor: pointer; }
+        #preview-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; justify-content: center; }
+        .img-prev { width: 85px; height: 85px; object-fit: cover; border-radius: 5px; }
+        
+        .sig-box { border: 1px solid #d5dbdb; background: #fff; position: relative; border-radius: 4px; }
+        canvas { width: 100%; height: 150px; touch-action: none; }
+        .clear-btn { position: absolute; top: 5px; right: 5px; background: #95a5a6; color: white; border: none; padding: 3px 8px; border-radius: 3px; font-size: 9px; }
+        
+        #btnGenerar { width: 100%; padding: 20px; background: var(--primary); color: white; border: none; border-radius: 5px; font-size: 17px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Orden de Servicio Técnico</h2>
+    
+    <div class="config-prof">
+        <span class="config-title">⚙️ CONFIGURACIÓN PROFESIONAL</span>
+        <div class="grid">
+            <input type="text" id="miNombre" placeholder="Tu Nombre Completo (Ej: Ing. Ricardo Ríos)" oninput="guardarPersistente()">
+            <input type="text" id="miCedula" placeholder="Tu Cédula Profesional" oninput="guardarPersistente()">
+        </div>
+    </div>
+
+    <fieldset>
+        <legend>Datos de Control</legend>
+        <div class="grid">
+            <input type="text" id="cliente" placeholder="Institución / Cliente">
+            <input type="date" id="fechaServicio">
+            <select id="tipoServicio">
+                <option>Mantenimiento Preventivo</option>
+                <option>Mantenimiento Correctivo</option>
+                <option>Instalación / Capacitación</option>
+                <option>Dictamen Técnico Especializado</option>
+            </select>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Identificación del Activo</legend>
+        <div class="grid">
+            <select id="equipoMenu" onchange="verificarEquipo()">
+                <option value="">-- Seleccionar Equipo --</option>
+                <option>Desfibrilador</option>
+                <option>Monitor de Signos Vitales</option>
+                <option>Máquina de Anestesia</option>
+                <option>Electrocardiógrafo</option>
+                <option>Ventilador Mecánico</option>
+                <option>Unidad de Electrocirugía</option>
+                <option>Bomba de Infusión</option>
+                <option value="otro">Otro (Especificar)</option>
+            </select>
+            <input type="text" id="equipoManual" placeholder="Nombre del equipo" style="display:none;">
+            <input type="text" id="marca" placeholder="Marca (Ej: Steris, Stryker)">
+            <input type="text" id="modelo" placeholder="Modelo">
+            <input type="text" id="serie" placeholder="Número de Serie">
+        </div>
+
+        <div id="seccionJoules">
+            <div class="joule-grid">
+                <div>#</div><div>J. SELECCIONADOS</div><div>J. EMITIDOS</div>
+                <span>1</span><input type="number" id="js1" value="50"> <input type="number" id="je1">
+                <span>2</span><input type="number" id="js2" value="100"> <input type="number" id="je2">
+                <span>3</span><input type="number" id="js3" value="200"> <input type="number" id="je3">
+                <span>4</span><input type="number" id="js4" value="360"> <input type="number" id="je4">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Reporte de Actividades Técnicas</legend>
+        <textarea id="notas" rows="4" placeholder="Describa detalladamente el protocolo realizado..."></textarea>
+    </fieldset>
+
+    <fieldset>
+        <legend>Evidencia Fotográfica</legend>
+        <div class="photo-area" onclick="document.getElementById('fotosInput').click()">
+            <span style="color: #7f8c8d; font-size: 14px;">Subir fotos del servicio</span>
+            <input type="file" id="fotosInput" accept="image/*" multiple style="display:none;">
+            <div id="preview-container"></div>
+        </div>
+    </fieldset>
+
+    <div class="grid">
+        <div class="campo">
+            <label style="font-size:11px; font-weight:bold; color:var(--primary)">FIRMA INGENIERÍA:</label>
+            <div class="sig-box">
+                <canvas id="padTecnico"></canvas>
+                <button class="clear-btn" onclick="pTecnico.clear()">Limpiar</button>
+            </div>
+        </div>
+        <div class="campo">
+            <label style="font-size:11px; font-weight:bold; color:var(--primary)">FIRMA CLIENTE:</label>
+            <div class="sig-box">
+                <canvas id="padCliente"></canvas>
+                <button class="clear-btn" onclick="pCliente.clear()">Limpiar</button>
+            </div>
+        </div>
+    </div>
+
+    <button id="btnGenerar">GENERAR REPORTE PDF PROFESIONAL</button>
+</div>
+
+<script>
+    const cT = document.getElementById('padTecnico');
+    const cC = document.getElementById('padCliente');
+
+    window.onload = () => {
+        document.getElementById('fechaServicio').value = new Date().toISOString().split('T')[0];
+        // CARGAR DATOS DESDE EL ALMACENAMIENTO LOCAL DEL CELULAR
+        document.getElementById('miNombre').value = localStorage.getItem('biomedico_nombre') || "";
+        document.getElementById('miCedula').value = localStorage.getItem('biomedico_cedula') || "";
+        resizeCanvas();
+    };
+
+    function guardarPersistente() {
+        localStorage.setItem('biomedico_nombre', document.getElementById('miNombre').value);
+        localStorage.setItem('biomedico_cedula', document.getElementById('miCedula').value);
+    }
+
+    function resizeCanvas() {
+        [cT, cC].forEach(c => {
+            const ratio = window.devicePixelRatio || 1;
+            c.width = c.offsetWidth * ratio;
+            c.height = c.offsetHeight * ratio;
+            c.getContext("2d").scale(ratio, ratio);
+        });
+    }
+
+    function verificarEquipo() {
+        const menu = document.getElementById('equipoMenu');
+        document.getElementById('equipoManual').style.display = (menu.value === "otro") ? "block" : "none";
+        document.getElementById('seccionJoules').style.display = (menu.value === "Desfibrilador") ? "block" : "none";
+    }
+
+    const pTecnico = new SignaturePad(cT, { penColor: "rgb(0, 0, 100)" });
+    const pCliente = new SignaturePad(cC, { penColor: "rgb(0, 0, 100)" });
+
+    let fotosBase64 = [];
+    document.getElementById('fotosInput').addEventListener('change', function(e) {
+        const container = document.getElementById('preview-container');
+        container.innerHTML = ""; fotosBase64 = [];
+        Array.from(e.target.files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                fotosBase64.push(event.target.result);
+                const img = document.createElement('img');
+                img.src = event.target.result; img.className = 'img-prev';
+                container.appendChild(img);
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+
+    document.getElementById('btnGenerar').onclick = async function() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        const miNombre = document.getElementById('miNombre').value;
+        const miCedula = document.getElementById('miCedula').value;
+        const fechaRaw = document.getElementById('fechaServicio').value.split("-");
+        const fecha = fechaRaw[2] + "/" + fechaRaw[1] + "/" + fechaRaw[0];
+        const equipo = (document.getElementById('equipoMenu').value === "otro") ? 
+                        document.getElementById('equipoManual').value : document.getElementById('equipoMenu').value;
+
+        const footer = (docObj, y) => {
+            docObj.setDrawColor(200); docObj.line(15, y - 5, 195, y - 5);
+            docObj.setFontSize(7); docObj.setTextColor(100);
+            const msg = "DECLARACIÓN DE CONFORMIDAD: El servicio técnico descrito en este documento fue ejecutado rigurosamente bajo los protocolos de Ingeniería Biomédica y las especificaciones técnicas contenidas en el manual de servicio del fabricante. Se verificó la integridad física y funcional del equipo, asegurando que cumple con los estándares de seguridad para su operación clínica. El cliente manifiesta su conformidad con los trabajos realizados y recibe el equipo en condiciones operativas.";
+            docObj.text(docObj.splitTextToSize(msg, 180), 15, y);
+            
+            const sigY = y + 25;
+            if (!pTecnico.isEmpty()) docObj.addImage(pTecnico.toDataURL(), 'PNG', 20, sigY - 15, 50, 15);
+            if (!pCliente.isEmpty()) docObj.addImage(pCliente.toDataURL(), 'PNG', 130, sigY - 15, 50, 15);
+            docObj.setDrawColor(26, 42, 58); docObj.setLineWidth(0.5);
+            docObj.line(20, sigY, 80, sigY); docObj.line(130, sigY, 190, sigY);
+            docObj.setFontSize(8); docObj.setTextColor(26, 42, 58);
+            docObj.text(miNombre + " (Céd: " + miCedula + ")", 50, sigY + 5, { align: "center" });
+            docObj.text("Firma de Conformidad Cliente", 160, sigY + 5, { align: "center" });
+        };
+
+        doc.setFillColor(26, 42, 58); doc.rect(0, 0, 210, 25, 'F');
+        doc.setTextColor(255); doc.setFontSize(18); doc.text("REPORTE DE SERVICIO BIOMÉDICO", 105, 17, { align: "center" });
+        
+        doc.autoTable({
+            startY: 30,
+            head: [['INSTITUCIÓN / CLIENTE', 'TIPO DE SERVICIO', 'FECHA']],
+            body: [[document.getElementById('cliente').value, document.getElementById('tipoServicio').value, fecha]],
+            headStyles: { fillColor: [26, 42, 58] }, theme: 'grid'
+        });
+
+        doc.autoTable({
+            startY: doc.lastAutoTable.finalY + 5,
+            head: [['EQUIPO MÉDICO', 'MARCA', 'MODELO', 'NÚMERO DE SERIE']],
+            body: [[equipo, document.getElementById('marca').value, document.getElementById('modelo').value, document.getElementById('serie').value]],
+            headStyles: { fillColor: [52, 73, 94] }, theme: 'grid'
+        });
+
+        if(document.getElementById('equipoMenu').value === "Desfibrilador") {
+            doc.autoTable({
+                startY: doc.lastAutoTable.finalY + 5,
+                head: [['PRUEBA DE DESCARGA', 'J. SELECCIONADOS', 'J. EMITIDOS']],
+                body: [
+                    ['Punto 1', document.getElementById('js1').value, document.getElementById('je1').value],
+                    ['Punto 2', document.getElementById('js2').value, document.getElementById('je2').value],
+                    ['Punto 3', document.getElementById('js3').value, document.getElementById('je3').value],
+                    ['Punto 4', document.getElementById('js4').value, document.getElementById('je4').value]
+                ],
+                headStyles: { fillColor: [46, 204, 113] }, theme: 'grid'
+            });
+        }
+
+        doc.autoTable({
+            startY: doc.lastAutoTable.finalY + 5,
+            head: [['DESCRIPCIÓN TÉCNICA DE ACTIVIDADES']],
+            body: [[document.getElementById('notas').value]],
+            headStyles: { fillColor: [26, 42, 58] }, theme: 'striped'
+        });
+
+        footer(doc, 250);
+
+        if (fotosBase64.length > 0) {
+            doc.addPage();
+            doc.setFillColor(26, 42, 58); doc.rect(0, 0, 210, 15, 'F');
+            doc.setTextColor(255); doc.setFontSize(12); doc.text("ANEXO FOTOGRÁFICO DE EVIDENCIA", 105, 10, { align: "center" });
+            let x = 20, y = 30, c = 0;
+            fotosBase64.forEach((img) => {
+                if (c === 4) { footer(doc, 250); doc.addPage(); y = 30; x = 20; c = 0; }
+                doc.addImage(img, 'JPEG', x, y, 80, 60);
+                c++;
+                if (x === 20) { x = 110; } else { x = 20; y += 70; }
+            });
+            footer(doc, 250);
+        }
+
+        doc.save("Reporte_" + equipo.replace(/ /g, "_") + ".pdf");
+    };
+</script>
+</body>
+</html>
